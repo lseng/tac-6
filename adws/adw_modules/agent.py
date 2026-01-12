@@ -31,14 +31,14 @@ SLASH_COMMAND_MODEL_MAP: Final[Dict[SlashCommand, str]] = {
     # Branch operations
     "/generate_branch_name": "sonnet",
     # Implementation tasks
-    "/implement": "opus",
+    "/implement": "sonnet",
     # Testing and debugging
     "/test": "sonnet",
     "/resolve_failed_test": "sonnet",
     "/test_e2e": "sonnet",
     "/resolve_failed_e2e_test": "sonnet",
     # Review
-    "/review": "opus",
+    "/review": "sonnet",
     # Documentation
     "/document": "sonnet",
     # Git operations
@@ -46,9 +46,9 @@ SLASH_COMMAND_MODEL_MAP: Final[Dict[SlashCommand, str]] = {
     "/pull_request": "sonnet",
     # Issue types + planning
     "/chore": "sonnet",
-    "/bug": "opus",
-    "/feature": "opus",
-    "/patch": "opus",
+    "/bug": "sonnet",
+    "/feature": "sonnet",
+    "/patch": "sonnet",
 }
 
 

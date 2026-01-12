@@ -223,7 +223,7 @@ function displayResults(response: QueryResponse, query: string) {
     if (!response.error && response.results.length > 0) {
       const downloadButton = document.createElement('button');
       downloadButton.className = 'download-results-button';
-      downloadButton.innerHTML = '📥';
+      downloadButton.textContent = 'Download';
       downloadButton.title = 'Download results as CSV';
       downloadButton.onclick = () => downloadQueryResults(query);
 

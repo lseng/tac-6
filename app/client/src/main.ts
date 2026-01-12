@@ -182,13 +182,13 @@ async function loadDatabaseSchema() {
 
 // Display query results
 function displayResults(response: QueryResponse, query: string) {
-  
+
   const resultsSection = document.getElementById('results-section') as HTMLElement;
   const sqlDisplay = document.getElementById('sql-display') as HTMLDivElement;
   const resultsContainer = document.getElementById('results-container') as HTMLDivElement;
-  
+
   resultsSection.style.display = 'block';
-  
+
   // Display natural language query and SQL
   sqlDisplay.innerHTML = `
     <div class="query-display">
@@ -198,7 +198,7 @@ function displayResults(response: QueryResponse, query: string) {
       <strong>SQL:</strong> <code>${response.sql}</code>
     </div>
   `;
-  
+
   // Display results table
   if (response.error) {
     resultsContainer.innerHTML = `<div class="error-message">${response.error}</div>`;
@@ -209,12 +209,38 @@ function displayResults(response: QueryResponse, query: string) {
     resultsContainer.innerHTML = '';
     resultsContainer.appendChild(table);
   }
-  
+
+  // Update results header with download button
+  const resultsHeader = document.querySelector('.results-header') as HTMLElement;
+  if (resultsHeader) {
+    // Remove any existing download button
+    const existingDownloadButton = resultsHeader.querySelector('.download-results-button');
+    if (existingDownloadButton) {
+      existingDownloadButton.remove();
+    }
+
+    // Add download button if there are results
+    if (!response.error && response.results.length > 0) {
+      const downloadButton = document.createElement('button');
+      downloadButton.className = 'download-results-button';
+      downloadButton.innerHTML = '📥';
+      downloadButton.title = 'Download results as CSV';
+      downloadButton.onclick = () => downloadQueryResults(query);
+
+      const toggleButton = document.getElementById('toggle-results') as HTMLButtonElement;
+      resultsHeader.insertBefore(downloadButton, toggleButton);
+    }
+  }
+
   // Initialize toggle button
   const toggleButton = document.getElementById('toggle-results') as HTMLButtonElement;
-  toggleButton.addEventListener('click', () => {
+  // Remove existing event listeners by cloning and replacing
+  const newToggleButton = toggleButton.cloneNode(true) as HTMLButtonElement;
+  toggleButton.parentNode?.replaceChild(newToggleButton, toggleButton);
+
+  newToggleButton.addEventListener('click', () => {
     resultsContainer.style.display = resultsContainer.style.display === 'none' ? 'block' : 'none';
-    toggleButton.textContent = resultsContainer.style.display === 'none' ? 'Show' : 'Hide';
+    newToggleButton.textContent = resultsContainer.style.display === 'none' ? 'Show' : 'Hide';
   });
 }
 
@@ -284,15 +310,29 @@ function displayTables(tables: TableSchema[]) {
     
     tableLeft.appendChild(tableName);
     tableLeft.appendChild(tableInfo);
-    
+
+    const tableRight = document.createElement('div');
+    tableRight.style.display = 'flex';
+    tableRight.style.alignItems = 'center';
+    tableRight.style.gap = '0.5rem';
+
+    const downloadButton = document.createElement('button');
+    downloadButton.className = 'download-table-button';
+    downloadButton.innerHTML = '📥';
+    downloadButton.title = 'Download table as CSV';
+    downloadButton.onclick = () => downloadTable(table.name);
+
     const removeButton = document.createElement('button');
     removeButton.className = 'remove-table-button';
     removeButton.innerHTML = '&times;';
     removeButton.title = 'Remove table';
     removeButton.onclick = () => removeTable(table.name);
-    
+
+    tableRight.appendChild(downloadButton);
+    tableRight.appendChild(removeButton);
+
     tableHeader.appendChild(tableLeft);
-    tableHeader.appendChild(removeButton);
+    tableHeader.appendChild(tableRight);
     
     // Columns section
     const tableColumns = document.createElement('div');
@@ -397,24 +437,81 @@ function initializeModal() {
   });
 }
 
+// Download table as CSV
+function downloadTable(tableName: string) {
+  try {
+    // Trigger download by navigating to the export endpoint
+    window.location.href = `/api/table/${tableName}/export`;
+  } catch (error) {
+    displayError(error instanceof Error ? error.message : 'Failed to download table');
+  }
+}
+
+// Download query results as CSV
+async function downloadQueryResults(query: string) {
+  try {
+    const response = await fetch('/api/query/export', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        query: query,
+        llm_provider: 'openai'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to export query results');
+    }
+
+    // Get the CSV content as blob
+    const blob = await response.blob();
+
+    // Extract filename from Content-Disposition header or use default
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = 'query_results.csv';
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    // Create a temporary download link
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+
+    // Cleanup
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (error) {
+    displayError(error instanceof Error ? error.message : 'Failed to download query results');
+  }
+}
+
 // Remove table
 async function removeTable(tableName: string) {
   if (!confirm(`Are you sure you want to remove the table "${tableName}"?`)) {
     return;
   }
-  
+
   try {
     const response = await fetch(`/api/table/${tableName}`, {
       method: 'DELETE'
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to remove table');
     }
-    
+
     // Reload schema
     await loadDatabaseSchema();
-    
+
     // Show success message
     const successDiv = document.createElement('div');
     successDiv.className = 'success-message';
@@ -427,10 +524,10 @@ async function removeTable(tableName: string) {
       border-radius: 8px;
       margin-bottom: 1rem;
     `;
-    
+
     const tablesSection = document.getElementById('tables-section') as HTMLElement;
     tablesSection.insertBefore(successDiv, tablesSection.firstChild);
-    
+
     setTimeout(() => {
       successDiv.remove();
     }, 3000);
